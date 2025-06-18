@@ -1,0 +1,13 @@
+# Hukuk Bürosu Dilekçe Takip Sistemi - Gerekli Kütüphaneler
+
+# Takvim widget'ı için (isteğe bağlı ama önerilen)
+tkcalendar>=1.6.1
+
+# Sistem bildirimleri için (isteğe bağlı)
+plyer>=2.1.0
+
+# Windows sistemi için (sadece Windows'ta gerekli)
+# pywin32>=306  # Windows kullanıcıları için komentten çıkarın
+
+# Not: tkinter ve sqlite3 Python 3.x ile birlikte gelir, ayrıca yüklenmez
+# datetime, threading, time, os, sys, calendar modülleri Python standart kütüphanesidir
