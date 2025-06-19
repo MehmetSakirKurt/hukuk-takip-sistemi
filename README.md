@@ -26,6 +26,15 @@ python main.py
 
 ## 🔋 Özellikler
 
+### 🎯 Versiyon 2.0 "Jüpiter" - YENİ!
+- 🎨 **Modern UI/UX**: ttkbootstrap ile 14 farklı tema
+- 🏠 **Dinamik Dashboard**: 4 akıllı kart ile gerçek zamanlı durum
+- ⌨️ **Komut Paleti (Ctrl+K)**: Hızlı erişim tüm işlevlere
+- 🔍 **Gelişmiş Filtreler**: Akıllı filtreleme ve arama
+- ⚡ **Performans**: Pagination ile büyük veri seti desteği
+- 🧪 **%100 Test Kapsamı**: Tam otomatize edilmiş test sistemi
+
+### 📊 Temel Özellikler
 - ✅ **Dosya Yönetimi**: Dosya ekleme, düzenleme, silme
 - 📅 **Otomatik Tarih Hesaplama**: Son teslim tarihinden 2 gün öncesi ana avukata sunum tarihi
 - 🗓️ **Takvim Görünümü**: Tüm tarihleri görsel takvim üzerinde görme
@@ -237,6 +246,11 @@ Menüden **Dosya > Veritabanını Yedekle** seçeneğini kullanın.
 
 ## 🎯 Klavye Kısayolları
 
+### 🆕 Yeni Kısayollar (v2.0)
+- **Ctrl+K**: Komut paleti aç
+- **Ctrl+F**: Arama kutusuna odaklan
+
+### 📋 Temel Kısayollar
 - **Ctrl+N**: Yeni dosya ekle
 - **F2**: Seçili dosyayı düzenle
 - **Delete**: Seçili dosyayı sil

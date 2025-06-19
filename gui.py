@@ -6,10 +6,19 @@ Ana GUI arayüzü
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import messagebox, simpledialog
 from datetime import datetime, timedelta
 import calendar
 from typing import Dict, List, Optional
+
+# Modern UI için ttkbootstrap
+try:
+    import ttkbootstrap as ttk
+    from ttkbootstrap.constants import *
+    TTKBOOTSTRAP_AVAILABLE = True
+except ImportError:
+    from tkinter import ttk
+    TTKBOOTSTRAP_AVAILABLE = False
 
 try:
     from tkcalendar import DateEntry
@@ -21,10 +30,14 @@ from database import DatabaseManager
 from calendar_view import CalendarView
 
 class MainGUI:
-    def __init__(self, root: tk.Tk, db_manager: DatabaseManager, notification_manager):
+    def __init__(self, root, db_manager: DatabaseManager, notification_manager):
         self.root = root
         self.db_manager = db_manager
         self.notification_manager = notification_manager
+        
+        # Tema ayarları
+        self.current_theme = "cosmo"  # Varsayılan tema
+        self.dark_mode = False
         
         # Stil ayarları
         self.setup_styles()
@@ -40,19 +53,29 @@ class MainGUI:
         
     def setup_styles(self):
         """Stil ayarlarını yap"""
-        style = ttk.Style()
+        if TTKBOOTSTRAP_AVAILABLE:
+            # ttkbootstrap kullanılıyorsa, kendi stil sistemini kullan
+            style = ttk.Style()
+        else:
+            # Geleneksel tkinter.ttk kullanılıyorsa
+            style = ttk.Style()
+            available_themes = style.theme_names()
+            if 'clam' in available_themes:
+                style.theme_use('clam')
+            elif 'alt' in available_themes:
+                style.theme_use('alt')
         
-        # Tema seç
-        available_themes = style.theme_names()
-        if 'clam' in available_themes:
-            style.theme_use('clam')
-        elif 'alt' in available_themes:
-            style.theme_use('alt')
+        # Modern fontlar
+        self.title_font = ('Segoe UI', 16, 'bold')
+        self.heading_font = ('Segoe UI', 12, 'bold')
+        self.body_font = ('Segoe UI', 10)
+        self.status_font = ('Segoe UI', 9)
         
         # Özel stiller
-        style.configure('Title.TLabel', font=('Arial', 14, 'bold'))
-        style.configure('Heading.TLabel', font=('Arial', 12, 'bold'))
-        style.configure('Status.TLabel', font=('Arial', 10))
+        if not TTKBOOTSTRAP_AVAILABLE:
+            style.configure('Title.TLabel', font=self.title_font)
+            style.configure('Heading.TLabel', font=self.heading_font)
+            style.configure('Status.TLabel', font=self.status_font)
         
     def setup_main_window(self):
         """Ana pencere ayarlarını yap"""
@@ -98,6 +121,28 @@ class MainGUI:
         view_menu.add_separator()
         view_menu.add_checkbutton(label="Tamamlananları Göster", variable=tk.BooleanVar(value=True), 
                                 command=self.toggle_completed_visibility)
+        view_menu.add_separator()
+        
+        # Tema menüsü
+        if TTKBOOTSTRAP_AVAILABLE:
+            theme_menu = tk.Menu(view_menu, tearoff=0)
+            view_menu.add_cascade(label="Tema", menu=theme_menu)
+            
+            # Açık temalar
+            light_menu = tk.Menu(theme_menu, tearoff=0)
+            theme_menu.add_cascade(label="Açık Temalar", menu=light_menu)
+            light_themes = ["cosmo", "flatly", "journal", "litera", "lumen", "minty", "pulse", "sandstone", "yeti"]
+            for theme in light_themes:
+                light_menu.add_command(label=theme.title(), command=lambda t=theme: self.change_theme(t))
+            
+            # Koyu temalar
+            dark_menu = tk.Menu(theme_menu, tearoff=0)
+            theme_menu.add_cascade(label="Koyu Temalar", menu=dark_menu)
+            dark_themes = ["darkly", "cyborg", "slate", "superhero", "vapor"]
+            for theme in dark_themes:
+                dark_menu.add_command(label=theme.title(), command=lambda t=theme: self.change_theme(t))
+        else:
+            view_menu.add_command(label="Koyu Tema", command=self.toggle_dark_mode)
         
         # Yardım menüsü
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -110,6 +155,8 @@ class MainGUI:
         self.root.bind('<F2>', lambda e: self.edit_selected_dosya())
         self.root.bind('<Delete>', lambda e: self.delete_selected_dosya())
         self.root.bind('<F5>', lambda e: self.refresh_data())
+        self.root.bind('<Control-k>', lambda e: self.show_command_palette())  # Komut paleti
+        self.root.bind('<Control-f>', lambda e: self.focus_search())  # Arama'ya odaklan
         
     def create_widgets(self):
         """Ana widget'ları oluştur"""
@@ -123,10 +170,8 @@ class MainGUI:
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(2, weight=1)
         
-        # Başlık
-        title_label = ttk.Label(main_frame, text="Hukuk Bürosu Dilekçe Takip Sistemi", 
-                               style='Title.TLabel')
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        # Modern başlık ve dashboard
+        self.create_dashboard(main_frame)
         
         # Sol panel - Kontroller
         self.create_control_panel(main_frame)
@@ -242,6 +287,200 @@ class MainGUI:
         
         # Sağ tık olayını bağla
         self.tree.bind('<Button-3>', self.show_context_menu)
+    
+    def create_dashboard(self, parent):
+        """Modern dashboard paneli oluştur"""
+        dashboard_frame = ttk.Frame(parent, padding="10")
+        dashboard_frame.grid(row=0, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
+        dashboard_frame.columnconfigure(2, weight=1)
+        
+        # Başlık
+        title_label = ttk.Label(dashboard_frame, text="🏛️ Hukuk Bürosu Dilekçe Takip Sistemi", 
+                               font=self.title_font)
+        title_label.grid(row=0, column=0, columnspan=4, pady=(0, 15))
+        
+        # Dashboard kartları
+        self.create_dashboard_cards(dashboard_frame)
+        
+        # Hızlı erişim butonları
+        self.create_quick_actions(dashboard_frame)
+    
+    def create_dashboard_cards(self, parent):
+        """Dashboard kartlarını oluştur"""
+        cards_frame = ttk.Frame(parent)
+        cards_frame.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 15))
+        
+        # Kartları tutacak değişkenler
+        self.dashboard_vars = {
+            'total': tk.StringVar(value="0"),
+            'active': tk.StringVar(value="0"),
+            'urgent': tk.StringVar(value="0"),
+            'today': tk.StringVar(value="0")
+        }
+        
+        # Kart bilgileri
+        cards = [
+            ("📁", "Toplam Dosya", self.dashboard_vars['total'], "#3498db"),
+            ("⚡", "Aktif Dosyalar", self.dashboard_vars['active'], "#27ae60"),
+            ("⚠️", "Acil Dosyalar", self.dashboard_vars['urgent'], "#e74c3c"),
+            ("📅", "Bugün Teslim", self.dashboard_vars['today'], "#f39c12")
+        ]
+        
+        for i, (icon, title, var, color) in enumerate(cards):
+            self.create_card(cards_frame, icon, title, var, color, i)
+        
+        # Grid kolonlarını eşit genişlikte yap
+        for i in range(4):
+            cards_frame.columnconfigure(i, weight=1)
+    
+    def create_card(self, parent, icon, title, value_var, color, column):
+        """Tek bir dashboard kartı oluştur"""
+        if TTKBOOTSTRAP_AVAILABLE:
+            # Modern kart stili
+            card_frame = ttk.Frame(parent, bootstyle="info", padding="15")
+        else:
+            card_frame = ttk.LabelFrame(parent, text="", padding="15")
+        
+        card_frame.grid(row=0, column=column, padx=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # İkon
+        icon_label = ttk.Label(card_frame, text=icon, font=('Segoe UI', 20))
+        icon_label.pack()
+        
+        # Değer
+        value_label = ttk.Label(card_frame, textvariable=value_var, 
+                               font=('Segoe UI', 16, 'bold'))
+        value_label.pack()
+        
+        # Başlık
+        title_label = ttk.Label(card_frame, text=title, 
+                               font=('Segoe UI', 10))
+        title_label.pack()
+        
+        # Karta tıklama olayı
+        def on_card_click(card_type=title):
+            self.filter_by_card(card_type)
+        
+        card_frame.bind("<Button-1>", lambda e: on_card_click())
+        icon_label.bind("<Button-1>", lambda e: on_card_click())
+        value_label.bind("<Button-1>", lambda e: on_card_click())
+        title_label.bind("<Button-1>", lambda e: on_card_click())
+    
+    def create_quick_actions(self, parent):
+        """Hızlı erişim butonları oluştur"""
+        actions_frame = ttk.Frame(parent)
+        actions_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E))
+        
+        # Hızlı eylem butonları
+        if TTKBOOTSTRAP_AVAILABLE:
+            ttk.Button(actions_frame, text="📄 Yeni Dosya", 
+                      command=self.show_add_dialog, bootstyle="primary").pack(side=tk.LEFT, padx=5)
+            ttk.Button(actions_frame, text="📅 Takvim", 
+                      command=self.show_calendar_view, bootstyle="info").pack(side=tk.LEFT, padx=5)
+            ttk.Button(actions_frame, text="📊 İstatistik", 
+                      command=self.show_statistics, bootstyle="secondary").pack(side=tk.LEFT, padx=5)
+            ttk.Button(actions_frame, text="🔍 Komut Paleti (Ctrl+K)", 
+                      command=self.show_command_palette, bootstyle="outline").pack(side=tk.LEFT, padx=5)
+        else:
+            ttk.Button(actions_frame, text="📄 Yeni Dosya", 
+                      command=self.show_add_dialog).pack(side=tk.LEFT, padx=5)
+            ttk.Button(actions_frame, text="📅 Takvim", 
+                      command=self.show_calendar_view).pack(side=tk.LEFT, padx=5)
+            ttk.Button(actions_frame, text="📊 İstatistik", 
+                      command=self.show_statistics).pack(side=tk.LEFT, padx=5)
+            ttk.Button(actions_frame, text="🔍 Komut Paleti", 
+                      command=self.show_command_palette).pack(side=tk.LEFT, padx=5)
+    
+    def filter_by_card(self, card_type):
+        """Karta göre filtreleme"""
+        if card_type == "Acil Dosyalar":
+            # 3 gün içindeki dosyaları göster
+            self.filter_urgent_files()
+        elif card_type == "Bugün Teslim":
+            # Bugün teslim edilecek dosyaları göster
+            self.filter_today_files()
+        elif card_type == "Aktif Dosyalar":
+            # Sadece aktif dosyaları göster
+            self.show_completed_var.set(False)
+            self.refresh_data()
+        else:
+            # Tüm dosyaları göster
+            self.show_completed_var.set(True)
+            self.refresh_data()
+        
+        self.update_status(f"'{card_type}' filtrelendi.")
+    
+    def filter_urgent_files(self):
+        """Acil dosyaları filtrele"""
+        try:
+            today = datetime.now().date()
+            urgent_date = today + timedelta(days=3)
+            
+            dosyalar = self.db_manager.get_all_dosyalar(include_completed=False)
+            urgent_dosyalar = []
+            
+            for dosya in dosyalar:
+                try:
+                    son_teslim = datetime.strptime(dosya['dilekce_son_teslim_tarihi'], '%Y-%m-%d').date()
+                    if son_teslim <= urgent_date:
+                        urgent_dosyalar.append(dosya)
+                except:
+                    pass
+            
+            self.populate_tree(urgent_dosyalar)
+            
+        except Exception as e:
+            messagebox.showerror("Hata", f"Acil dosya filtreleme hatası: {str(e)}")
+    
+    def filter_today_files(self):
+        """Bugün teslim edilecek dosyaları filtrele"""
+        try:
+            today = datetime.now().date()
+            today_str = today.strftime('%Y-%m-%d')
+            
+            dosyalar = self.db_manager.get_dosyalar_by_date(today_str)
+            self.populate_tree(dosyalar)
+            
+        except Exception as e:
+            messagebox.showerror("Hata", f"Bugün teslim filtreleme hatası: {str(e)}")
+    
+    def focus_search(self):
+        """Arama kutusuna odaklan"""
+        if hasattr(self, 'search_entry'):
+            self.search_entry.focus()
+    
+    def update_dashboard(self):
+        """Dashboard kartlarını güncelle"""
+        try:
+            stats = self.db_manager.get_statistics()
+            
+            # Dashboard değerlerini güncelle
+            self.dashboard_vars['total'].set(str(stats['toplam_dosya']))
+            self.dashboard_vars['active'].set(str(stats['aktif_dosya']))
+            
+            # Acil dosya sayısını hesapla (3 gün içinde)
+            today = datetime.now().date()
+            urgent_date = today + timedelta(days=3)
+            
+            dosyalar = self.db_manager.get_all_dosyalar(include_completed=False)
+            urgent_count = 0
+            today_count = 0
+            
+            for dosya in dosyalar:
+                try:
+                    son_teslim = datetime.strptime(dosya['dilekce_son_teslim_tarihi'], '%Y-%m-%d').date()
+                    if son_teslim <= urgent_date:
+                        urgent_count += 1
+                    if son_teslim == today:
+                        today_count += 1
+                except:
+                    pass
+            
+            self.dashboard_vars['urgent'].set(str(urgent_count))
+            self.dashboard_vars['today'].set(str(today_count))
+            
+        except Exception as e:
+            print(f"Dashboard güncelleme hatası: {e}")
         
     def create_status_panel(self, parent):
         """Durum panelini oluştur"""
@@ -459,6 +698,7 @@ tarihlerinin takibi için geliştirilmiştir.
             )
             self.populate_tree(dosyalar)
             self.update_statistics()
+            self.update_dashboard()  # Dashboard'u güncelle
             self.update_status("Veriler yenilendi.")
         except Exception as e:
             messagebox.showerror("Hata", f"Veri yenileme hatası: {str(e)}")
@@ -493,9 +733,11 @@ tarihlerinin takibi için geliştirilmiştir.
                     kalan_gun_text = str(kalan_gun)
                     tag = 'normal'
                     
-            except:
+            except ValueError as e:
                 kalan_gun_text = "?"
                 tag = 'normal'
+                # Log the error for debugging
+                print(f"Tarih formatı hatası: {e} - Dosya: {dosya.get('dosya_numarasi', 'N/A')}")
             
             # Durum
             durum = "Tamamlandı" if dosya['tamamlandi'] else "Aktif"
@@ -506,9 +748,11 @@ tarihlerinin takibi için geliştirilmiştir.
             try:
                 son_teslim_str = datetime.strptime(dosya['dilekce_son_teslim_tarihi'], '%Y-%m-%d').strftime('%d.%m.%Y')
                 sunum_tarihi_str = datetime.strptime(dosya['ana_avukata_sunum_tarihi'], '%Y-%m-%d').strftime('%d.%m.%Y')
-            except:
+            except ValueError as e:
                 son_teslim_str = dosya['dilekce_son_teslim_tarihi']
                 sunum_tarihi_str = dosya['ana_avukata_sunum_tarihi']
+                # Log the error for debugging
+                print(f"Tarih formatı hatası: {e} - Dosya: {dosya.get('dosya_numarasi', 'N/A')}")
             
             # Öğeyi ekle
             self.tree.insert('', 'end', values=(
@@ -533,8 +777,9 @@ tarihlerinin takibi için geliştirilmiştir.
             stats = self.db_manager.get_statistics()
             stats_text = f"Toplam: {stats['toplam_dosya']} | Aktif: {stats['aktif_dosya']} | Bu Hafta: {stats['bu_hafta_son_tarih']}"
             self.stats_var.set(stats_text)
-        except:
+        except Exception as e:
             self.stats_var.set("İstatistik bilgisi alınamadı")
+            print(f"İstatistik güncelleme hatası: {e}")
     
     def update_status(self, message: str):
         """Durum mesajını güncelle"""
@@ -546,6 +791,51 @@ tarihlerinin takibi için geliştirilmiştir.
         """Uygulama kapatılırken"""
         if messagebox.askokcancel("Çıkış", "Uygulamadan çıkmak istediğinizden emin misiniz?"):
             self.root.destroy()
+    
+    def change_theme(self, theme_name: str):
+        """Temayı değiştir"""
+        if TTKBOOTSTRAP_AVAILABLE:
+            try:
+                self.root.style.theme_use(theme_name)
+                self.current_theme = theme_name
+                self.dark_mode = theme_name in ["darkly", "cyborg", "slate", "superhero", "vapor"]
+                self.update_status(f"Tema '{theme_name}' olarak değiştirildi.")
+            except Exception as e:
+                messagebox.showerror("Hata", f"Tema değiştirme hatası: {str(e)}")
+    
+    def toggle_dark_mode(self):
+        """Koyu tema açık/kapalı"""
+        # Geleneksel tkinter için basit koyu tema
+        if not TTKBOOTSTRAP_AVAILABLE:
+            self.dark_mode = not self.dark_mode
+            if self.dark_mode:
+                # Koyu renkler
+                bg_color = '#2b2b2b'
+                fg_color = '#ffffff'
+                select_bg = '#404040'
+            else:
+                # Açık renkler
+                bg_color = '#ffffff'
+                fg_color = '#000000'
+                select_bg = '#e6f3ff'
+            
+            # Ana pencere rengini değiştir
+            self.root.configure(bg=bg_color)
+            
+            # Treeview renklerini güncelle
+            style = ttk.Style()
+            style.configure("Treeview", background=bg_color, foreground=fg_color, 
+                          selectbackground=select_bg, selectforeground=fg_color)
+            style.configure("Treeview.Heading", background=select_bg, foreground=fg_color)
+            
+            self.update_status("Tema değiştirildi.")
+    
+    def show_command_palette(self):
+        """Evrensel komut paleti göster (Ctrl+K)"""
+        try:
+            palette = CommandPalette(self.root, self)
+        except Exception as e:
+            messagebox.showerror("Hata", f"Komut paleti hatası: {str(e)}")
 
 
 class DosyaDialog:
@@ -683,8 +973,9 @@ class DosyaDialog:
             sunum_tarihi = tarih - timedelta(days=2)
             self.sunum_tarihi_var.set(sunum_tarihi.strftime('%d.%m.%Y'))
             
-        except:
+        except ValueError as e:
             self.sunum_tarihi_var.set("Geçersiz tarih")
+            print(f"Sunum tarihi hesaplama hatası: {e}")
     
     def save_dosya(self):
         """Dosyayı kaydet"""
@@ -804,11 +1095,12 @@ class DosyaDetayWindow:
             sunum_tarih = datetime.strptime(dosya['ana_avukata_sunum_tarihi'], '%Y-%m-%d').strftime('%d.%m.%Y')
             olusturma = datetime.strptime(dosya['olusturma_tarihi'], '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y %H:%M')
             guncelleme = datetime.strptime(dosya['guncelleme_tarihi'], '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y %H:%M')
-        except:
+        except ValueError as e:
             dilekce_tarih = dosya['dilekce_son_teslim_tarihi']
             sunum_tarih = dosya['ana_avukata_sunum_tarihi']
             olusturma = dosya['olusturma_tarihi']
             guncelleme = dosya['guncelleme_tarihi']
+            print(f"Detay tarih formatı hatası: {e}")
         
         # Kalan gün hesapla
         try:
@@ -816,8 +1108,9 @@ class DosyaDetayWindow:
             son_teslim = datetime.strptime(dosya['dilekce_son_teslim_tarihi'], '%Y-%m-%d').date()
             kalan_gun = (son_teslim - today).days
             kalan_gun_text = f"{kalan_gun} gün" if kalan_gun >= 0 else f"GEÇMİŞ ({abs(kalan_gun)} gün)"
-        except:
+        except ValueError as e:
             kalan_gun_text = "Bilinmiyor"
+            print(f"Kalan gün hesaplama hatası: {e}")
         
         info_text = f"""
 Dosya Numarası: {dosya['dosya_numarasi']}
@@ -848,3 +1141,181 @@ Notlar:
         # Kapat butonu
         ttk.Button(main_frame, text="Kapat", 
                   command=self.window.destroy).pack(pady=20)
+
+
+class CommandPalette:
+    """Evrensel komut paleti (Ctrl+K)"""
+    def __init__(self, parent, main_gui):
+        self.parent = parent
+        self.main_gui = main_gui
+        
+        # Dialog penceresi oluştur
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("🔍 Komut Paleti")
+        self.dialog.geometry("600x400")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # Pencereyi merkeze yerleştir
+        self.center_window()
+        
+        # Komutları tanımla
+        self.commands = {
+            "📄 Yeni Dosya Ekle": self.main_gui.show_add_dialog,
+            "📝 Seçili Dosyayı Düzenle": self.main_gui.edit_selected_dosya,
+            "🗑️ Seçili Dosyayı Sil": self.main_gui.delete_selected_dosya,
+            "📅 Takvim Görünümü": self.main_gui.show_calendar_view,
+            "📊 İstatistikler": self.main_gui.show_statistics,
+            "🔄 Verileri Yenile": self.main_gui.refresh_data,
+            "💾 Veritabanını Yedekle": self.main_gui.backup_database,
+            "ℹ️ Hakkında": self.main_gui.show_about,
+            "🚪 Çıkış": self.main_gui.on_closing,
+        }
+        
+        # Tema komutları ekle
+        if TTKBOOTSTRAP_AVAILABLE:
+            self.commands.update({
+                "🌞 Cosmo Teması": lambda: self.main_gui.change_theme("cosmo"),
+                "🌙 Darkly Teması": lambda: self.main_gui.change_theme("darkly"),
+                "💎 Cyborg Teması": lambda: self.main_gui.change_theme("cyborg"),
+                "🌊 Flatly Teması": lambda: self.main_gui.change_theme("flatly"),
+                "📰 Journal Teması": lambda: self.main_gui.change_theme("journal"),
+                "🌟 Superhero Teması": lambda: self.main_gui.change_theme("superhero"),
+            })
+        
+        self.filtered_commands = list(self.commands.keys())
+        
+        self.create_widgets()
+        
+        # Escape tuşu ile kapat
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
+        self.dialog.bind('<Return>', lambda e: self.execute_selected_command())
+        
+        # Arama kutusuna odaklan
+        self.search_entry.focus()
+    
+    def center_window(self):
+        """Pencereyi merkeze yerleştir"""
+        self.dialog.update_idletasks()
+        width = self.dialog.winfo_width()
+        height = self.dialog.winfo_height()
+        x = (self.dialog.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (height // 2)
+        self.dialog.geometry(f'{width}x{height}+{x}+{y}')
+    
+    def create_widgets(self):
+        """Widget'ları oluştur"""
+        main_frame = ttk.Frame(self.dialog, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Başlık
+        title_label = ttk.Label(main_frame, text="🔍 Komut Paleti", 
+                               font=('Segoe UI', 14, 'bold'))
+        title_label.pack(pady=(0, 10))
+        
+        # Arama kutusu
+        search_frame = ttk.Frame(main_frame)
+        search_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(search_frame, text="Komut ara:", 
+                 font=('Segoe UI', 10)).pack(anchor=tk.W)
+        
+        self.search_var = tk.StringVar()
+        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var, 
+                                     font=('Segoe UI', 12))
+        self.search_entry.pack(fill=tk.X, pady=(5, 0))
+        self.search_entry.bind('<KeyRelease>', self.on_search_change)
+        
+        # Komut listesi
+        list_frame = ttk.Frame(main_frame)
+        list_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Listbox
+        self.command_listbox = tk.Listbox(list_frame, font=('Segoe UI', 11),
+                                         height=15, activestyle='dotbox')
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, 
+                                 command=self.command_listbox.yview)
+        self.command_listbox.configure(yscrollcommand=scrollbar.set)
+        
+        self.command_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Listbox olayları
+        self.command_listbox.bind('<Double-Button-1>', lambda e: self.execute_selected_command())
+        self.command_listbox.bind('<Up>', self.on_listbox_key)
+        self.command_listbox.bind('<Down>', self.on_listbox_key)
+        
+        # İlk komutları yükle
+        self.update_command_list()
+        
+        # İlk komutu seç
+        if self.filtered_commands:
+            self.command_listbox.selection_set(0)
+        
+        # Butonlar
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        ttk.Button(button_frame, text="Çalıştır", 
+                  command=self.execute_selected_command).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(button_frame, text="İptal", 
+                  command=self.dialog.destroy).pack(side=tk.LEFT)
+        
+        # Yardım metni
+        help_label = ttk.Label(main_frame, 
+                              text="💡 İpucu: Enter ile çalıştır, Escape ile kapat, ↑↓ ile gezin",
+                              font=('Segoe UI', 9), foreground='gray')
+        help_label.pack(pady=(10, 0))
+    
+    def on_search_change(self, event):
+        """Arama metni değiştiğinde"""
+        search_text = self.search_var.get().lower()
+        
+        if search_text:
+            self.filtered_commands = [cmd for cmd in self.commands.keys() 
+                                    if search_text in cmd.lower()]
+        else:
+            self.filtered_commands = list(self.commands.keys())
+        
+        self.update_command_list()
+        
+        # İlk sonucu seç
+        if self.filtered_commands:
+            self.command_listbox.selection_set(0)
+    
+    def update_command_list(self):
+        """Komut listesini güncelle"""
+        self.command_listbox.delete(0, tk.END)
+        for command in self.filtered_commands:
+            self.command_listbox.insert(tk.END, command)
+    
+    def on_listbox_key(self, event):
+        """Listbox klavye olayları"""
+        # Arama kutusuna odaklanmışken ok tuşları ile listbox'ta gezinme
+        current_selection = self.command_listbox.curselection()
+        if event.keysym == 'Up' and current_selection:
+            new_selection = max(0, current_selection[0] - 1)
+            self.command_listbox.selection_clear(0, tk.END)
+            self.command_listbox.selection_set(new_selection)
+            self.command_listbox.see(new_selection)
+        elif event.keysym == 'Down' and current_selection:
+            new_selection = min(len(self.filtered_commands) - 1, current_selection[0] + 1)
+            self.command_listbox.selection_clear(0, tk.END)
+            self.command_listbox.selection_set(new_selection)
+            self.command_listbox.see(new_selection)
+    
+    def execute_selected_command(self):
+        """Seçili komutu çalıştır"""
+        selection = self.command_listbox.curselection()
+        if selection:
+            command_name = self.filtered_commands[selection[0]]
+            command_func = self.commands[command_name]
+            
+            # Dialog'u kapat
+            self.dialog.destroy()
+            
+            # Komutu çalıştır
+            try:
+                command_func()
+            except Exception as e:
+                messagebox.showerror("Hata", f"Komut çalıştırma hatası: {str(e)}")

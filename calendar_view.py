@@ -288,14 +288,27 @@ class CalendarView:
         button_info['info_label'].config(text=info_text, foreground=text_color, background=bg_color)
     
     def get_dosyalar_by_month(self) -> Dict:
-        """Bu aydaki dosyaları al"""
+        """Bu aydaki dosyaları al (takvim görünümü için geniş aralık)"""
         try:
-            # Ayın ilk ve son günü
+            # Ayın ilk günü
             first_day = self.current_date.replace(day=1)
+            
+            # Takvimde görünen tüm günleri kapsayacak aralık
+            # Önceki aydan başlayıp sonraki aya kadar
+            first_weekday = first_day.weekday()  # Pazartesi = 0
+            start_date = first_day - timedelta(days=first_weekday)
+            
+            # Ayın son günü
             if self.current_date.month == 12:
                 last_day = first_day.replace(year=first_day.year + 1, month=1) - timedelta(days=1)
             else:
                 last_day = first_day.replace(month=first_day.month + 1) - timedelta(days=1)
+            
+            # Takvim grid'inin son günü (6 hafta * 7 gün = 42 gün)
+            days_in_month = last_day.day
+            total_days_needed = first_weekday + days_in_month
+            weeks_needed = (total_days_needed + 6) // 7  # Yukarı yuvarlama
+            end_date = start_date + timedelta(days=weeks_needed * 7 - 1)
             
             # Tüm dosyaları al
             all_dosyalar = self.db_manager.get_all_dosyalar(include_completed=True)
@@ -307,7 +320,7 @@ class CalendarView:
                 # Son teslim tarihi
                 try:
                     dilekce_date = datetime.strptime(dosya['dilekce_son_teslim_tarihi'], '%Y-%m-%d').date()
-                    if first_day.date() <= dilekce_date <= last_day.date():
+                    if start_date <= dilekce_date <= end_date:
                         date_str = dilekce_date.strftime('%Y-%m-%d')
                         if date_str not in dosyalar_by_date:
                             dosyalar_by_date[date_str] = []
@@ -315,13 +328,14 @@ class CalendarView:
                             'dosya': dosya,
                             'type': 'dilekce'
                         })
-                except:
+                except ValueError as e:
+                    print(f"Takvim tarih formatı hatası: {e} - Dosya: {dosya.get('dosya_numarasi', 'N/A')}")
                     pass
                 
                 # Ana avukata sunum tarihi
                 try:
                     sunum_date = datetime.strptime(dosya['ana_avukata_sunum_tarihi'], '%Y-%m-%d').date()
-                    if first_day.date() <= sunum_date <= last_day.date():
+                    if start_date <= sunum_date <= end_date:
                         date_str = sunum_date.strftime('%Y-%m-%d')
                         if date_str not in dosyalar_by_date:
                             dosyalar_by_date[date_str] = []
@@ -329,7 +343,8 @@ class CalendarView:
                             'dosya': dosya,
                             'type': 'sunum'
                         })
-                except:
+                except ValueError as e:
+                    print(f"Takvim tarih formatı hatası: {e} - Dosya: {dosya.get('dosya_numarasi', 'N/A')}")
                     pass
             
             return dosyalar_by_date

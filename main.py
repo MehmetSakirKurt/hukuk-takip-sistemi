@@ -6,12 +6,21 @@ Ana uygulama dosyası
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 import sys
 import os
 from datetime import datetime, timedelta
 import threading
 import time
+
+# Modern UI için ttkbootstrap
+try:
+    import ttkbootstrap as ttk
+    from ttkbootstrap.constants import *
+    TTKBOOTSTRAP_AVAILABLE = True
+except ImportError:
+    from tkinter import ttk
+    TTKBOOTSTRAP_AVAILABLE = False
 
 # Yerel modülleri import et
 from database import DatabaseManager
@@ -20,10 +29,19 @@ from notifications import NotificationManager
 
 class HukukTakipSistemi:
     def __init__(self):
-        self.root = tk.Tk()
-        self.root.title("Hukuk Bürosu Dilekçe Takip Sistemi")
-        self.root.geometry("1200x800")
-        self.root.minsize(800, 600)
+        # Modern tema ile pencere oluştur
+        if TTKBOOTSTRAP_AVAILABLE:
+            self.root = ttk.Window(themename="cosmo")  # Modern, temiz tema
+        else:
+            self.root = tk.Tk()
+        
+        self.root.title("🏛️ Hukuk Bürosu Dilekçe Takip Sistemi")
+        self.root.geometry("1400x900")
+        self.root.minsize(1000, 700)
+        
+        # Modern pencere ayarları
+        if TTKBOOTSTRAP_AVAILABLE:
+            self.root.place_window_center()  # Pencereyi merkeze yerleştir
         
         # Veritabanı yöneticisini başlat
         self.db_manager = DatabaseManager()

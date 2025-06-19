@@ -6,6 +6,9 @@ tkcalendar>=1.6.1
 # Sistem bildirimleri için (isteğe bağlı)
 plyer>=2.1.0
 
+# Modern UI/UX için
+ttkbootstrap>=1.10.1
+
 # Windows sistemi için (sadece Windows'ta gerekli)
 # pywin32>=306  # Windows kullanıcıları için komentten çıkarın
 

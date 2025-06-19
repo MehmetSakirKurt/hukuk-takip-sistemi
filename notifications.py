@@ -113,7 +113,8 @@ class NotificationManager:
                         'kalan_gun': kalan_gun,
                         'tarih_str': son_teslim.strftime('%d.%m.%Y')
                     })
-            except:
+            except ValueError as e:
+                print(f"Bildirim tarih formatı hatası: {e} - Dosya: {dosya.get('dosya_numarasi', 'N/A')}")
                 pass
             
             # Ana avukata sunum tarihi kontrolü
@@ -131,7 +132,8 @@ class NotificationManager:
                         'kalan_gun': kalan_gun,
                         'tarih_str': sunum_tarihi.strftime('%d.%m.%Y')
                     })
-            except:
+            except ValueError as e:
+                print(f"Bildirim tarih formatı hatası: {e} - Dosya: {dosya.get('dosya_numarasi', 'N/A')}")
                 pass
         
         # Son teslim tarihlerini ekle

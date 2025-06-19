@@ -64,6 +64,10 @@ class DatabaseManager:
                   notlar: str = "") -> bool:
         """Yeni dosya ekle"""
         try:
+            # Dosya numarası kontrolü
+            if not dosya_numarasi or not dosya_numarasi.strip():
+                raise ValueError("Dosya numarası boş olamaz")
+            
             # Ana avukata sunum tarihini hesapla (2 takvim günü öncesi)
             dilekce_tarihi = datetime.strptime(dilekce_son_teslim_tarihi, "%Y-%m-%d")
             sunum_tarihi = dilekce_tarihi - timedelta(days=2)
@@ -147,27 +151,53 @@ class DatabaseManager:
         except sqlite3.Error as e:
             raise Exception(f"Dosya silme hatası: {e}")
     
-    def get_all_dosyalar(self, include_completed: bool = True) -> List[Dict]:
-        """Tüm dosyaları getir"""
+    def get_all_dosyalar(self, include_completed: bool = True, limit: int = None, offset: int = 0) -> List[Dict]:
+        """Tüm dosyaları getir (pagination desteği ile)"""
         try:
             cursor = self.connection.cursor()
             
+            base_query = '''
+                SELECT * FROM dosyalar 
+                {} 
+                ORDER BY dilekce_son_teslim_tarihi ASC, olusturma_tarihi DESC
+            '''
+            
             if include_completed:
-                cursor.execute('''
-                    SELECT * FROM dosyalar 
-                    ORDER BY dilekce_son_teslim_tarihi ASC, olusturma_tarihi DESC
-                ''')
+                where_clause = ""
+                params = []
             else:
-                cursor.execute('''
-                    SELECT * FROM dosyalar 
-                    WHERE tamamlandi = FALSE
-                    ORDER BY dilekce_son_teslim_tarihi ASC, olusturma_tarihi DESC
-                ''')
+                where_clause = "WHERE tamamlandi = FALSE"
+                params = []
+            
+            # Pagination parametreleri
+            pagination_clause = ""
+            if limit is not None:
+                pagination_clause = f" LIMIT {limit}"
+                if offset > 0:
+                    pagination_clause += f" OFFSET {offset}"
+            
+            query = base_query.format(where_clause) + pagination_clause
+            cursor.execute(query, params)
             
             return [dict(row) for row in cursor.fetchall()]
             
         except sqlite3.Error as e:
             raise Exception(f"Dosyalar getirme hatası: {e}")
+    
+    def get_dosya_count(self, include_completed: bool = True) -> int:
+        """Toplam dosya sayısını getir"""
+        try:
+            cursor = self.connection.cursor()
+            
+            if include_completed:
+                cursor.execute("SELECT COUNT(*) as count FROM dosyalar")
+            else:
+                cursor.execute("SELECT COUNT(*) as count FROM dosyalar WHERE tamamlandi = FALSE")
+            
+            return cursor.fetchone()['count']
+            
+        except sqlite3.Error as e:
+            raise Exception(f"Dosya sayısı getirme hatası: {e}")
     
     def get_dosya_by_id(self, dosya_id: int) -> Optional[Dict]:
         """ID'ye göre dosya getir"""
@@ -203,8 +233,8 @@ class DatabaseManager:
             
             cursor.execute('''
                 SELECT * FROM dosyalar 
-                WHERE (dilekce_son_teslim_tarihi BETWEEN ? AND ?)
-                   OR (ana_avukata_sunum_tarihi BETWEEN ? AND ?)
+                WHERE ((dilekce_son_teslim_tarihi BETWEEN ? AND ?)
+                   OR (ana_avukata_sunum_tarihi BETWEEN ? AND ?))
                    AND tamamlandi = FALSE
                 ORDER BY dilekce_son_teslim_tarihi ASC
             ''', (today.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"),
